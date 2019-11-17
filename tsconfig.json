@@ -11,7 +11,8 @@
     "noImplicitThis": true,
     "downlevelIteration": true,
     "allowJs": true,
-    "sourceMap": true,
+    "resolveJsonModule": true,
+    "sourceMap": true
   },
   "include": [
     "src"

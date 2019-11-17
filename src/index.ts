@@ -1,16 +1,12 @@
-// This file is modified from:
-// - https://github.com/lukechilds/window/blob/master/src/index.js
-// - https://github.com/lukechilds/browser-env/blob/master/src/index.js
-
 import { ConstructorOptions, DOMWindow, JSDOM, ResourceLoader, ResourceLoaderConstructorOptions } from 'jsdom';
 import { get, toPath } from 'lodash';
 
 // --- Types ---------------------------------------------------------------- //
 
-interface WindowOptions extends Omit<ConstructorOptions, 'resources'> {
-  resources: ResourceLoaderConstructorOptions;
-}
+type WindowOptions = Omit<ConstructorOptions, 'resources'> & ResourceLoaderConstructorOptions;
+// type keyof typeof window = keyof typeof window;
 
+// Typings borrowed from Lodash
 type Many<T> = T | readonly T[];
 type PropertyName = string | number | symbol;
 type PropertyPath = Many<PropertyName>;
@@ -21,10 +17,14 @@ let savedWindowOptions: WindowOptions | undefined = undefined;
 
 /**
  * Encapsulates the Window object produced by JSDOM.
+ *
+ * @source https://github.com/lukechilds/window/blob/master/src/index.js
  */
+/* istanbul ignore next */
 function createWindow(options: WindowOptions = {} as any) {
   savedWindowOptions = options;
-  const resources = new ResourceLoader(options.resources);
+  const { proxy, strictSSL, userAgent } = options;
+  const resources = new ResourceLoader({ proxy, strictSSL, userAgent });
   return new JSDOM('', { ...options, resources }).window;
 }
 
@@ -32,6 +32,7 @@ function createWindow(options: WindowOptions = {} as any) {
  * IIFE executed on import to return an array of global Node.js properties that
  * conflict with global browser properties.
  */
+/* istanbul ignore next */
 const protectedProperties = (() =>
   // @ts-ignore
   Object.getOwnPropertyNames(createWindow()).filter(prop => typeof global[prop] !== 'undefined'))();
@@ -45,6 +46,7 @@ const savedGlobalDescriptors = new Map<string, PropertyDescriptor>();
  * Restores the original property descriptor of protected properties that have
  * been stubbed by the `stubWindowProperty` function.
  */
+/* istanbul ignore next */
 function cleanProtectedProperties() {
   // If we stubbed a protected property, then we need to restore the original
   // value at each path.
@@ -66,20 +68,30 @@ function cleanProtectedProperties() {
 /**
  * Builds a mocked browser environment using JSDOM.
  *
- * @param properties - Properties to retain on the `Window` object built by JSDOM.
+ * @param properties - A list of properties to map from `Window` to
+ * `NodeJS.Global`. This reduces pollution at the global scope if only a subset
+ * of window properties are required.
  * @param options - Options to configure the JSDOM instance.
+ *
+ * @source https://github.com/lukechilds/browser-env/blob/master/src/index.js
  */
-export function browserEnv(properties?: (keyof Window)[]): DOMWindow;
-export function browserEnv(options?: WindowOptions): DOMWindow;
-export function browserEnv(properties?: (keyof Window)[], options?: WindowOptions): DOMWindow;
-export function browserEnv(propertiesOrOptions?: (keyof Window)[] | WindowOptions, options?: WindowOptions): DOMWindow {
+function createBrowserEnv(properties?: (keyof typeof window)[]): DOMWindow;
+function createBrowserEnv(options?: WindowOptions): DOMWindow;
+function createBrowserEnv(properties?: (keyof typeof window)[], options?: WindowOptions): DOMWindow;
+function createBrowserEnv(options?: WindowOptions, properties?: (keyof typeof window)[]): DOMWindow;
+function createBrowserEnv(
+  propertiesOrOptions?: (keyof typeof window)[] | WindowOptions,
+  optionsOrProperties?: WindowOptions | (keyof typeof window)[],
+): DOMWindow {
   cleanProtectedProperties();
 
-  const properties = Array.isArray(propertiesOrOptions) ? propertiesOrOptions : undefined;
-  const optionsResolved = Array.isArray(propertiesOrOptions) ? options : propertiesOrOptions;
+  // Extract options from args
+  const args = Array.from(arguments);
+  const properties: (keyof typeof window)[] | undefined = args.filter(arg => Array.isArray(arg))[0];
+  const options: WindowOptions | undefined = args.filter(arg => !Array.isArray(arg))[0];
 
   // Create window object
-  const win = createWindow(optionsResolved);
+  const win = createWindow(options);
 
   // Get all global browser properties
   Object.getOwnPropertyNames(win)
@@ -110,18 +122,18 @@ export function browserEnv(propertiesOrOptions?: (keyof Window)[] | WindowOption
  * @param value - A replacement value for the given path.
  */
 // tslint:disable:prettier
-export function stubWindowProperty<TValue, TKey extends keyof Window>(path: TKey | [TKey], value: TValue): void;
-export function stubWindowProperty<TValue, TKey1 extends keyof Window, TKey2 extends keyof Window[TKey1]>(path: [TKey1, TKey2], value: TValue): void;
-export function stubWindowProperty<TValue, TKey1 extends keyof Window, TKey2 extends keyof Window[TKey1], TKey3 extends keyof Window[TKey1][TKey2]>(path: [TKey1, TKey2, TKey3], value: TValue): void;
-export function stubWindowProperty<TValue, TKey1 extends keyof Window, TKey2 extends keyof Window[TKey1], TKey3 extends keyof Window[TKey1][TKey2], TKey4 extends keyof Window[TKey1][TKey2][TKey3]>(path: [TKey1, TKey2, TKey3, TKey4], value: TValue): void;
-export function stubWindowProperty<TValue, TKey1 extends keyof Window, TKey2 extends keyof Window[TKey1], TKey3 extends keyof Window[TKey1][TKey2], TKey4 extends keyof Window[TKey1][TKey2][TKey3], TKey5 extends keyof Window[TKey1][TKey2][TKey3][TKey4]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5], value: TValue): void;
-export function stubWindowProperty<TValue, TKey1 extends keyof Window, TKey2 extends keyof Window[TKey1], TKey3 extends keyof Window[TKey1][TKey2], TKey4 extends keyof Window[TKey1][TKey2][TKey3], TKey5 extends keyof Window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof Window[TKey1][TKey2][TKey3][TKey4][TKey5]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6], value: TValue): void;
-export function stubWindowProperty<TValue, TKey1 extends keyof Window, TKey2 extends keyof Window[TKey1], TKey3 extends keyof Window[TKey1][TKey2], TKey4 extends keyof Window[TKey1][TKey2][TKey3], TKey5 extends keyof Window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof Window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof Window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7], value: TValue): void;
-export function stubWindowProperty<TValue, TKey1 extends keyof Window, TKey2 extends keyof Window[TKey1], TKey3 extends keyof Window[TKey1][TKey2], TKey4 extends keyof Window[TKey1][TKey2][TKey3], TKey5 extends keyof Window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof Window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof Window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6], TKey8 extends keyof Window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7, TKey8], value: TValue): void;
-export function stubWindowProperty<TValue, TKey1 extends keyof Window, TKey2 extends keyof Window[TKey1], TKey3 extends keyof Window[TKey1][TKey2], TKey4 extends keyof Window[TKey1][TKey2][TKey3], TKey5 extends keyof Window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof Window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof Window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6], TKey8 extends keyof Window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7], TKey9 extends keyof Window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7][TKey9]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7, TKey8, TKey9], value: TValue): void;
-export function stubWindowProperty(path: PropertyPath, value: any): void;
+function stubWindowProperty<TValue, TKey extends keyof typeof window>(path: TKey | [TKey], value: TValue): void;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1]>(path: [TKey1, TKey2], value: TValue): void;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2]>(path: [TKey1, TKey2, TKey3], value: TValue): void;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3]>(path: [TKey1, TKey2, TKey3, TKey4], value: TValue): void;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5], value: TValue): void;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6], value: TValue): void;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7], value: TValue): void;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6], TKey8 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7, TKey8], value: TValue): void;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6], TKey8 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7], TKey9 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7][TKey8]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7, TKey8, TKey9], value: TValue): void;
+function stubWindowProperty(path: PropertyPath, value: any): void;
 // tslint:enable:prettier
-export function stubWindowProperty(path: PropertyPath, value: any): void {
+function stubWindowProperty(path: PropertyPath, value: any): void {
   const pathQualified = toPath(path);
   const pathMinusLastElement = pathQualified.slice(0, -1);
   const pathKey = JSON.stringify(path);
@@ -150,10 +162,14 @@ export function stubWindowProperty(path: PropertyPath, value: any): void {
 
 /**
  * Rebuild the window object, removing any previously applied stubs. The same
- * configuration that was passed to the originating `browserEnv` call will be
- * used.
+ * configuration passed to the previous `browserEnv` call will be used.
  */
-export function restoreWindow() {
+function restoreWindow() {
   cleanProtectedProperties();
-  return browserEnv(savedWindowOptions);
+  return createBrowserEnv(savedWindowOptions);
 }
+
+export default Object.assign(createBrowserEnv, {
+  stub: stubWindowProperty,
+  restore: restoreWindow,
+});

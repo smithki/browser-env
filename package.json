@@ -45,15 +45,9 @@
     "typescript": "~3.7.2"
   },
   "ava": {
-    "require": [
-      "ts-node/register"
-    ],
-    "files": [
-      "test/**/*.spec.ts"
-    ],
-    "extensions": [
-      "ts"
-    ],
+    "require": ["ts-node/register"],
+    "files": ["test/**/*.ts"],
+    "extensions": ["ts"],
     "compileEnhancements": false,
     "verbose": true
   },
@@ -62,10 +56,6 @@
     "all": false,
     "check-coverage": true,
     "per-file": true,
-    "lines": 99,
-    "statements": 99,
-    "functions": 99,
-    "branches": 99,
     "reporter": [
       "html",
       "lcov"
