@@ -2,7 +2,7 @@
 #                               CI INSTRUCTIONS                                #
 #                               ~~~~~~~~~~~~~~~                                #
 #   This configuration is optimized for continuous delivery of NPM packages    #
-#                                 using Yarn.                                  #
+#                           using Yarn and Coveralls.                          #
 # ---------------------------------------------------------------------------- #
 #                                                                              #
 #  1) Publish the initial version of your NPM package manually, ensuring the   #
@@ -11,8 +11,9 @@
 #                                                                              #
 #  2) Environment variables required in CircleCI:                              #
 #                                                                              #
-#            $NPM_TOKEN -- NPM publishing auth token.                          #
-#    $GITHUB_REPO_TOKEN -- GitHub repo-scoped auth token (for use with GREN).  #
+#             $NPM_TOKEN -- NPM publishing auth token.                         #
+#     $GITHUB_REPO_TOKEN -- GitHub repo-scoped auth token (for use with GREN). #
+#  $COVERALLS_REPO_TOKEN -- Coveralls token for uploading coverage reports.    #
 #                                                                              #
 #                                                                              #
 #  3) The following branches should be created & protected on GitHub:          #
@@ -28,6 +29,8 @@
 #        lint -- Run a linter against source files.                            #
 #       build -- Build output required for publishing to NPM.                  #
 #        test -- Run unit/integration/e2e tests.                               #
+#    coverage -- Build a test coverage report (using `nyc` is highly           #
+#                recommended).                                                 #
 #                                                                              #
 #                                                                              #
 #  5) Ensure the aliases for `&dependency-paths` and `&build-output-paths`     #
@@ -96,6 +99,11 @@ aliases: [
     }
   },
 ]
+
+# --- Orbs definitions ------------------------------------------------------- #
+
+orbs:
+  coveralls: coveralls/coveralls@1.0.4
 
 # --- Executor definitions --------------------------------------------------- #
 
@@ -234,6 +242,21 @@ jobs:
           name: Generate release notes and publish to GitHub
           command: npx gren release --override --prerelease --token $GITHUB_REPO_TOKEN
 
+  # Build the coverage report and upload to Coveralls. This should depend on
+  # the `build` job.
+  create-coverage-report:
+    executor: default
+    steps:
+      - checkout
+      - *attach-workspace
+      - run:
+          name: Install Coveralls dependencies
+          command: yarn install
+      - run:
+          name: Build the coverage report
+          command: yarn run coverage
+      - coveralls/upload
+
 # --- Workflow definitions --------------------------------------------------- #
 
 workflows:
@@ -285,6 +308,11 @@ workflows:
           requires:
             - confirm-release
 
+      - create-coverage-report:
+          requires:
+            - confirm-release
+            - create-release
+
       - tag-release:
           requires:
             - confirm-release
@@ -318,6 +346,10 @@ workflows:
             - build
             - test
 
+      - create-coverage-report:
+          requires:
+            - create-prerelease
+
       - tag-release:
           requires:
             - create-prerelease
@@ -325,3 +357,5 @@ workflows:
       - create-prerelease-notes:
           requires:
             - tag-release
+
+

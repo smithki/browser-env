@@ -1,5 +1,5 @@
 {
-  "name": "@smithki/browser-env",
+  "name": "@ikscodes/browser-env",
   "version": "0.1.0",
   "description": "A browser ENV for Node-based unit testing with simple stubbing features.",
   "author": "Ian K Smith <hello@iks.codes>",
@@ -15,6 +15,7 @@
     "build:cjs": "microbundle build -i src/index.ts -o dist -f cjs",
     "test": "npm-run-all -s clean:test-artifacts test:*",
     "test:run": "cross-env TS_NODE_PROJECT=test/tsconfig.json nyc --reporter=lcov --reporter=text-summary ava",
+    "coverage": "nyc --reporter=lcov --reporter=text-summary ava | coveralls",
     "clean": "npm-run-all -s clean:*",
     "clean:cache": "rimraf .rts2_*",
     "clean:test-artifacts": "rimraf coverage && rimraf .nyc-output",
