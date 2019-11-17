@@ -1,0 +1,327 @@
+# ---------------------------------------------------------------------------- #
+#                               CI INSTRUCTIONS                                #
+#                               ~~~~~~~~~~~~~~~                                #
+#   This configuration is optimized for continuous delivery of NPM packages    #
+#                                 using Yarn.                                  #
+# ---------------------------------------------------------------------------- #
+#                                                                              #
+#  1) Publish the initial version of your NPM package manually, ensuring the   #
+#     correct org scope and settings.                                          #
+#                                                                              #
+#                                                                              #
+#  2) Environment variables required in CircleCI:                              #
+#                                                                              #
+#            $NPM_TOKEN -- NPM publishing auth token.                          #
+#    $GITHUB_REPO_TOKEN -- GitHub repo-scoped auth token (for use with GREN).  #
+#                                                                              #
+#                                                                              #
+#  3) The following branches should be created & protected on GitHub:          #
+#                                                ^^^^^^^^^                     #
+#         master -- Production code (currently published NPM version).         #
+#           next -- Pre-release code (published under the `next` tag on NPM).  #
+#    development -- Work-in-progress code (not published). This should be set  #
+#                   as the default branch!                                     #
+#                                                                              #
+#                                                                              #
+#  4) The following scripts should be created in `package.json`:               #
+#                                                                              #
+#        lint -- Run a linter against source files.                            #
+#       build -- Build output required for publishing to NPM.                  #
+#        test -- Run unit/integration/e2e tests.                               #
+#                                                                              #
+#                                                                              #
+#  5) Ensure the aliases for `&dependency-paths` and `&build-output-paths`     #
+#     below properly reflect the dependency and output directories of your     #
+#     app or module.                                                           #
+#                                                                              #
+#                                                                              #
+#  6) [OPTIONAL] Configure GREN to your liking using `.grenrc`.                #
+#                                                                              #
+#     See: https://github.com/github-tools/github-release-notes                #
+#                                                                              #
+# ---------------------------------------------------------------------------- #
+
+version: 2.1
+
+# --- YAML Aliases ----------------------------------------------------------- #
+
+aliases: [
+  # List of dependency paths that should be persisted to the
+  # CircleCI workspace.
+  &dependency-paths [
+    "node_modules"
+  ],
+
+  # List of build output paths that should be persisted to the
+  # CircleCI workspace.
+  &build-output-paths [
+    "dist"
+  ],
+
+  # Yarn lockfile cache key (update "vN" => "vN+1" to cache-bust).
+  &dependency-cache-key "v1-dependency-cache-{{ checksum \"yarn.lock\" }}",
+
+  &workspace-root "/home/circleci/project",
+
+  &attach-workspace {
+    attach_workspace: {
+      at: *workspace-root
+    }
+  },
+
+  # Filter pull requests not in "master" or "next" (development code)
+  &filter-default-branches {
+    filters: {
+      branches: {
+        ignore: "/^master$|^next$/"
+      }
+    }
+  },
+
+  # Filter pull requests in "master" only (production code).
+  &filter-release-branches-only {
+    filters: {
+      branches: {
+        only: "master"
+      }
+    }
+  },
+
+  # Filter pull requests in "next" only (pre-release code).
+  &filter-prerelease-branches-only {
+    filters: {
+      branches: {
+        only: "next"
+      }
+    }
+  },
+]
+
+# --- Executor definitions --------------------------------------------------- #
+
+executors:
+  default:
+    docker:
+      - image: circleci/node:10-browsers
+
+# --- Job definitions -------------------------------------------------------- #
+
+jobs:
+  # Installs Node dependencies via Yarn, caches them, then persists
+  # to the workspace.
+  install-dependencies:
+    executor: default
+    steps:
+      - checkout
+      - *attach-workspace
+      - restore_cache:
+          key: *dependency-cache-key
+      - run:
+          name: Install Module Dependencies
+          command: yarn install
+      - save_cache:
+          paths: *dependency-paths
+          key: *dependency-cache-key
+      - persist_to_workspace:
+          paths: *dependency-paths
+          root: *workspace-root
+
+  # Runs the linter against relevant source files.
+  lint:
+    executor: default
+    steps:
+      - checkout
+      - *attach-workspace
+      - run:
+          name: Lint source files
+          command: yarn lint
+
+  # Builds modules and persists the build output to the workspace.
+  build:
+    executor: default
+    steps:
+      - checkout
+      - *attach-workspace
+      - run:
+          name: Build modules
+          command: yarn build
+      - persist_to_workspace:
+          paths: *build-output-paths
+          root: *workspace-root
+
+  # Run unit/integration/e2e tests.
+  test:
+    executor: default
+    steps:
+      - checkout
+      - *attach-workspace
+      - run:
+          name: Run tests
+          command: yarn test
+
+  # Publish the package to NPM. This should depend on the `build` job.
+  create-release:
+    executor: default
+    steps:
+      - checkout
+      - *attach-workspace
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
+      - run:
+          name: Publish package to NPM
+          command: npm publish
+
+  # Publish the package as a pre-release version to NPM. This should depend on
+  # the `build` job.
+  create-prerelease:
+    executor: default
+    steps:
+      - checkout
+      - *attach-workspace
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
+      - run:
+          name: Publish pre-release package to NPM
+          command: npm publish --tag next
+
+  # Create a git tag for this release and push to the remote repository.
+  tag-release:
+    executor: default
+    steps:
+      - checkout
+      - *attach-workspace
+      - run:
+          name: Git tag the release with the `package.json` version number
+          command: |
+            PACKAGE_VERSION=$(node -pe "require('./package.json')['version']")
+            git tag v$PACKAGE_VERSION
+      - run:
+          name: Push git tag to the remote repository
+          command: |
+            PACKAGE_VERSION=$(node -pe "require('./package.json')['version']")
+            git push -q https://$GITHUB_REPO_TOKEN@github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME.git v$PACKAGE_VERSION
+
+  # Create release notes on GitHub using the `github-release-notes` package.
+  #
+  # See: https://github.com/github-tools/github-release-notes
+  create-release-notes:
+    executor: default
+    steps:
+      - checkout
+      - *attach-workspace
+      - run:
+          name: Install github-release-notes package
+          command: yarn add -D -W github-release-notes
+      - run:
+          name: Generate release notes and publish to GitHub
+          command: npx gren release --override --token $GITHUB_REPO_TOKEN
+
+  # Create release notes for a prerelease version on GitHub using the
+  # `github-release-notes` package.
+  #
+  # See: https://github.com/github-tools/github-release-notes
+  create-prerelease-notes:
+    executor: default
+    steps:
+      - checkout
+      - *attach-workspace
+      - run:
+          name: Install github-release-notes package
+          command: yarn add -D -W github-release-notes
+      - run:
+          name: Generate release notes and publish to GitHub
+          command: npx gren release --override --prerelease --token $GITHUB_REPO_TOKEN
+
+# --- Workflow definitions --------------------------------------------------- #
+
+workflows:
+
+  # Builds modules, verifies code with the linter, and runs unit tests.
+  pull-request:
+    jobs:
+      - install-dependencies: *filter-default-branches
+
+      - lint:
+          requires:
+            - install-dependencies
+
+      - build:
+          requires:
+            - lint
+
+      - test:
+          requires:
+            - lint
+
+  # Builds modules, verifies code with the linter, runs unit tests, and
+  # publishes the built package to NPM.
+  publish-to-npm:
+    jobs:
+      - install-dependencies: *filter-release-branches-only
+
+      - lint:
+          requires:
+            - install-dependencies
+
+      - build:
+          requires:
+            - lint
+
+      - test:
+          requires:
+            - lint
+
+        # Manual approval step as a final gatekeeper to prevent
+        # possible mistakes!
+      - confirm-release:
+          type: approval
+          requires:
+            - build
+            - test
+
+      - create-release:
+          requires:
+            - confirm-release
+
+      - tag-release:
+          requires:
+            - confirm-release
+            - create-release
+
+      - create-release-notes:
+          requires:
+            - confirm-release
+            - tag-release
+
+  # Builds modules, verifies code with the linter, runs unit tests, and
+  # publishes a pre-release version of the built package to NPM.
+  publish-prerelease-to-npm:
+    jobs:
+      - install-dependencies: *filter-prerelease-branches-only
+
+      - lint:
+          requires:
+            - install-dependencies
+
+      - build:
+          requires:
+            - lint
+
+      - test:
+          requires:
+            - lint
+
+      - create-prerelease:
+          requires:
+            - build
+            - test
+
+      - tag-release:
+          requires:
+            - create-prerelease
+
+      - create-prerelease-notes:
+          requires:
+            - tag-release
