@@ -1,6 +1,6 @@
 {
   "name": "@ikscodes/browser-env",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Simulates a global browser environment using JSDOM.",
   "author": "Ian K Smith <hello@iks.codes>",
   "license": "MIT",
@@ -8,7 +8,8 @@
     "type": "git",
     "url": "https://github.com/smithki/browser-env"
   },
-  "main": "lib/browser-env.js",
+  "main": "dist/browser-env.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "dev": "microbundle watch -i dist src/index.cjs+es.ts -o dist -f cjs",
     "build": "npm-run-all -s clean:build -p build:*",

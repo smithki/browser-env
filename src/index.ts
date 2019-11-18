@@ -13,8 +13,6 @@ type PropertyPath = Many<PropertyName>;
 
 // --- Utilities ------------------------------------------------------------ //
 
-let savedWindowOptions: WindowOptions | undefined = undefined;
-
 /**
  * Encapsulates the Window object produced by JSDOM.
  *
@@ -22,7 +20,6 @@ let savedWindowOptions: WindowOptions | undefined = undefined;
  */
 /* istanbul ignore next */
 function createWindow(options: WindowOptions = {} as any) {
-  savedWindowOptions = options;
   const { proxy, strictSSL, userAgent } = options;
   const resources = new ResourceLoader({ proxy, strictSSL, userAgent });
   return new JSDOM('', { ...options, resources }).window;
@@ -43,22 +40,30 @@ const protectedProperties = (() =>
 const savedGlobalDescriptors = new Map<string, PropertyDescriptor>();
 
 /**
- * Restores the original property descriptor of protected properties that have
- * been stubbed by the `stubWindowProperty` function.
+ * Restores all original values of `Window` properties that have been stubbed.
  */
 /* istanbul ignore next */
-function cleanProtectedProperties() {
+function cleanStubbedProperties() {
   // If we stubbed a protected property, then we need to restore the original
   // value at each path.
   if (savedGlobalDescriptors.size) {
     for (const [path, descriptor] of savedGlobalDescriptors) {
+      // TODO - Some duplication between this and `stubWindowProperty`...
+      // Need to make it more DRY...
       const parsedPath = JSON.parse(path);
       const pathQualified = Array.isArray(parsedPath) ? parsedPath : [parsedPath];
       const pathMinusLastElement = pathQualified.slice(0, -1);
+      const firstInPath = pathQualified[0];
       const lastInPath = pathQualified[pathQualified.length - 1];
-      const source = get(global, pathMinusLastElement, global);
+      const isProtectedPath = protectedProperties.includes(firstInPath);
+
+      const source = isProtectedPath
+        ? get(global, pathMinusLastElement, global)
+        : get((global as any).window, pathMinusLastElement, (global as any).window);
+
       Object.defineProperty(source, lastInPath, descriptor);
     }
+
     savedGlobalDescriptors.clear();
   }
 }
@@ -83,7 +88,7 @@ function createBrowserEnv(
   propertiesOrOptions?: (keyof typeof window)[] | WindowOptions,
   optionsOrProperties?: WindowOptions | (keyof typeof window)[],
 ): DOMWindow {
-  cleanProtectedProperties();
+  cleanStubbedProperties();
 
   // Extract options from args
   const args = Array.from(arguments);
@@ -136,7 +141,7 @@ function stubWindowProperty(path: PropertyPath, value: any): void;
 function stubWindowProperty(path: PropertyPath, value: any): void {
   const pathQualified = toPath(path);
   const pathMinusLastElement = pathQualified.slice(0, -1);
-  const pathKey = JSON.stringify(path);
+  const pathKey = JSON.stringify(pathQualified);
   const firstInPath = pathQualified[0];
   const lastInPath = pathQualified[pathQualified.length - 1];
   const isProtectedPath = protectedProperties.includes(firstInPath);
@@ -146,27 +151,27 @@ function stubWindowProperty(path: PropertyPath, value: any): void {
     ? get(global, pathMinusLastElement, global)
     : get((global as any).window, pathMinusLastElement, (global as any).window);
 
-  // If we are stubbing a protected property, save the original descriptor so we
-  // can restore it later.
-  const sourceDescriptor = Object.getOwnPropertyDescriptor(source, lastInPath);
-  if (isProtectedPath && !savedGlobalDescriptors.has(pathKey) && sourceDescriptor) {
-    savedGlobalDescriptors.set(pathKey, sourceDescriptor);
-  }
+  if (source && lastInPath) {
+    // Save the original descriptor so we can restore it later.
+    const sourceDescriptor =
+      Object.getOwnPropertyDescriptor(source, lastInPath) ||
+      Object.getOwnPropertyDescriptor(Object.getPrototypeOf(source), lastInPath);
+    if (!savedGlobalDescriptors.has(pathKey) && sourceDescriptor) savedGlobalDescriptors.set(pathKey, sourceDescriptor);
 
-  // Replace the indicated value with a readonly stub.
-  Object.defineProperty(source, lastInPath, {
-    configurable: true,
-    get: () => value,
-  });
+    // Replace the indicated value with a readonly stub.
+    Object.defineProperty(source, lastInPath, {
+      configurable: true,
+      get: () => value,
+    });
+  }
 }
 
 /**
- * Rebuild the window object, removing any previously applied stubs. The same
- * configuration passed to the previous `browserEnv` call will be used.
+ * Restore the `Window` object, removing any previously applied stubs.
  */
 function restoreWindow() {
-  cleanProtectedProperties();
-  return createBrowserEnv(savedWindowOptions);
+  cleanStubbedProperties();
+  return (window as unknown) as DOMWindow;
 }
 
 export default Object.assign(createBrowserEnv, {
