@@ -1,12 +1,12 @@
 {
   "name": "@ikscodes/browser-env",
   "version": "0.1.0",
-  "description": "A browser ENV for Node-based unit testing with simple stubbing features.",
+  "description": "Simulates a global browser environment using JSDOM.",
   "author": "Ian K Smith <hello@iks.codes>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/smithki/browser-stub"
+    "url": "https://github.com/smithki/browser-env"
   },
   "main": "lib/browser-env.js",
   "scripts": {
