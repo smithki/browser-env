@@ -1,6 +1,6 @@
 {
   "name": "@ikscodes/browser-env",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Simulates a global browser environment using JSDOM.",
   "author": "Ian K Smith <hello@iks.codes>",
   "license": "MIT",
