@@ -4,12 +4,15 @@ import { get, toPath } from 'lodash';
 // --- Types ---------------------------------------------------------------- //
 
 type WindowOptions = Omit<ConstructorOptions, 'resources'> & ResourceLoaderConstructorOptions;
-// type keyof typeof window = keyof typeof window;
 
 // Typings borrowed from Lodash
 type Many<T> = T | readonly T[];
 type PropertyName = string | number | symbol;
 type PropertyPath = Many<PropertyName>;
+
+interface RestoreFunction {
+  (): void;
+}
 
 // --- Utilities ------------------------------------------------------------ //
 
@@ -97,9 +100,10 @@ function createBrowserEnv(
 
   // Create window object
   const win = createWindow(options);
+  const winProps = Object.getOwnPropertyNames(win);
 
   // Get all global browser properties
-  Object.getOwnPropertyNames(win)
+  winProps
 
     // Remove protected properties
     .filter(prop => !protectedProperties.includes(prop))
@@ -116,6 +120,20 @@ function createBrowserEnv(
       });
     });
 
+  winProps
+
+    // Keep protected properties
+    .filter(prop => protectedProperties.includes(prop))
+
+    // Copy what's left to the window's scope
+    .forEach(prop => {
+      Object.defineProperty(win, prop, {
+        configurable: true,
+        // @ts-ignore
+        get: () => global[prop],
+      });
+    });
+
   // Return reference to original window object
   return win;
 }
@@ -127,18 +145,18 @@ function createBrowserEnv(
  * @param value - A replacement value for the given path.
  */
 // tslint:disable:prettier
-function stubWindowProperty<TValue, TKey extends keyof typeof window>(path: TKey | [TKey], value: TValue): void;
-function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1]>(path: [TKey1, TKey2], value: TValue): void;
-function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2]>(path: [TKey1, TKey2, TKey3], value: TValue): void;
-function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3]>(path: [TKey1, TKey2, TKey3, TKey4], value: TValue): void;
-function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5], value: TValue): void;
-function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6], value: TValue): void;
-function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7], value: TValue): void;
-function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6], TKey8 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7, TKey8], value: TValue): void;
-function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6], TKey8 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7], TKey9 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7][TKey8]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7, TKey8, TKey9], value: TValue): void;
-function stubWindowProperty(path: PropertyPath, value: any): void;
+function stubWindowProperty<TValue, TKey extends keyof typeof window>(path: TKey | [TKey], value: TValue): RestoreFunction;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1]>(path: [TKey1, TKey2], value: TValue): RestoreFunction;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2]>(path: [TKey1, TKey2, TKey3], value: TValue): RestoreFunction;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3]>(path: [TKey1, TKey2, TKey3, TKey4], value: TValue): RestoreFunction;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5], value: TValue): RestoreFunction;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6], value: TValue): RestoreFunction;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7], value: TValue): RestoreFunction;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6], TKey8 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7, TKey8], value: TValue): RestoreFunction;
+function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6], TKey8 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7], TKey9 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7][TKey8]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7, TKey8, TKey9], value: TValue): RestoreFunction;
+function stubWindowProperty(path: PropertyPath, value: any): RestoreFunction;
 // tslint:enable:prettier
-function stubWindowProperty(path: PropertyPath, value: any): void {
+function stubWindowProperty(path: PropertyPath, value: any): RestoreFunction {
   const pathQualified = toPath(path);
   const pathMinusLastElement = pathQualified.slice(0, -1);
   const pathKey = JSON.stringify(pathQualified);
@@ -147,23 +165,33 @@ function stubWindowProperty(path: PropertyPath, value: any): void {
   const isProtectedPath = protectedProperties.includes(firstInPath);
 
   // Extract the source object that we'll be stubbing.
-  const source = isProtectedPath
-    ? get(global, pathMinusLastElement, global)
-    : get((global as any).window, pathMinusLastElement, (global as any).window);
+  const globalSource = get(global, pathMinusLastElement, global);
+  const windowSource = get(window, pathMinusLastElement, window);
+  const currentSource = isProtectedPath ? globalSource : windowSource;
 
-  if (source && lastInPath) {
+  if (currentSource && lastInPath) {
     // Save the original descriptor so we can restore it later.
     const sourceDescriptor =
-      Object.getOwnPropertyDescriptor(source, lastInPath) ||
-      Object.getOwnPropertyDescriptor(Object.getPrototypeOf(source), lastInPath);
-    if (!savedGlobalDescriptors.has(pathKey) && sourceDescriptor) savedGlobalDescriptors.set(pathKey, sourceDescriptor);
+      Object.getOwnPropertyDescriptor(currentSource, lastInPath) ||
+      Object.getOwnPropertyDescriptor(Object.getPrototypeOf(currentSource), lastInPath);
+    if (!savedGlobalDescriptors.has(pathKey) && sourceDescriptor) {
+      savedGlobalDescriptors.set(pathKey, sourceDescriptor);
+    }
 
     // Replace the indicated value with a readonly stub.
-    Object.defineProperty(source, lastInPath, {
+    Object.defineProperty(currentSource, lastInPath, {
       configurable: true,
       get: () => value,
     });
   }
+
+  return () => {
+    const originalDescriptor = savedGlobalDescriptors.get(pathKey);
+    if (currentSource && lastInPath && originalDescriptor) {
+      Object.defineProperty(currentSource, lastInPath, originalDescriptor);
+      savedGlobalDescriptors.delete(pathKey);
+    }
+  };
 }
 
 /**
