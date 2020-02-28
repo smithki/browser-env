@@ -34,6 +34,7 @@ function createWindow(options: WindowOptions = {} as any) {
  */
 /* istanbul ignore next */
 const protectedProperties = (() =>
+  /* eslint-disable-next-line @typescript-eslint/ban-ts-ignore */
   // @ts-ignore
   Object.getOwnPropertyNames(createWindow()).filter(prop => typeof global[prop] !== 'undefined'))();
 
@@ -115,6 +116,7 @@ function createBrowserEnv(
     .forEach(prop => {
       Object.defineProperty(global, prop, {
         configurable: true,
+        /* eslint-disable-next-line @typescript-eslint/ban-ts-ignore */
         // @ts-ignore
         get: () => win[prop],
       });
@@ -129,6 +131,7 @@ function createBrowserEnv(
     .forEach(prop => {
       Object.defineProperty(win, prop, {
         configurable: true,
+        /* eslint-disable-next-line @typescript-eslint/ban-ts-ignore */
         // @ts-ignore
         get: () => global[prop],
       });
@@ -144,7 +147,7 @@ function createBrowserEnv(
  * @param path - A path within the window object to stub.
  * @param value - A replacement value for the given path.
  */
-// tslint:disable:prettier
+/* eslint-disable prettier/prettier */
 function stubWindowProperty<TValue, TKey extends keyof typeof window>(path: TKey | [TKey], value: TValue): RestoreFunction;
 function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1]>(path: [TKey1, TKey2], value: TValue): RestoreFunction;
 function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2]>(path: [TKey1, TKey2, TKey3], value: TValue): RestoreFunction;
@@ -155,7 +158,7 @@ function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 ext
 function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6], TKey8 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7, TKey8], value: TValue): RestoreFunction;
 function stubWindowProperty<TValue, TKey1 extends keyof typeof window, TKey2 extends keyof typeof window[TKey1], TKey3 extends keyof typeof window[TKey1][TKey2], TKey4 extends keyof typeof window[TKey1][TKey2][TKey3], TKey5 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4], TKey6 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5], TKey7 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6], TKey8 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7], TKey9 extends keyof typeof window[TKey1][TKey2][TKey3][TKey4][TKey5][TKey6][TKey7][TKey8]>(path: [TKey1, TKey2, TKey3, TKey4, TKey5, TKey6, TKey7, TKey8, TKey9], value: TValue): RestoreFunction;
 function stubWindowProperty(path: PropertyPath, value: any): RestoreFunction;
-// tslint:enable:prettier
+/* eslint-enable prettier/prettier */
 function stubWindowProperty(path: PropertyPath, value: any): RestoreFunction {
   const pathQualified = toPath(path);
   const pathMinusLastElement = pathQualified.slice(0, -1);
