@@ -35,7 +35,7 @@ npm install --save-dev @ikscodes/browser-env
 import browserEnv from '@ikscodes/browser-env';
 browserEnv();
 
-// Now you have access to a browser like environment in Node.js:
+// Now you have access to a browser-like environment in Node.js:
 
 typeof window;
 // => 'object'
@@ -106,6 +106,13 @@ document.createElement.calledOnce // => true
 //  same arguments passed to `browserEnv`).
 browserEnv.restore();
 document.createElement.calledOnce // => undefined
+
+// It's also possible to remove one stub at a time using the function
+// returned by `browserEnv.stub`
+const removeStub = browserEnv.stub('console.log', 999);
+typeof console.log // => 'number'
+removeStub();
+typeof console.log // => 'function'
 ```
 
 ## Rationale
